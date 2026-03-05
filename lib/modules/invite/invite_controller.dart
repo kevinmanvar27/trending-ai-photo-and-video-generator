@@ -3,6 +3,9 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/services/share_service.dart';
+import '../../core/services/user_api_service.dart';
+import '../../core/models/user_model.dart';
 
 class InviteController extends GetxController {
   final contacts = <Contact>[].obs;
@@ -132,7 +135,7 @@ class InviteController extends GetxController {
     }
   }
 
-  // Send WhatsApp invitation
+  // Send WhatsApp invitation with referral code
   Future<void> sendWhatsAppInvite(Contact contact) async {
     try {
       if (contact.phones.isEmpty) {
@@ -150,11 +153,32 @@ class InviteController extends GetxController {
       
       debugPrint('📱 Sending invite to: ${contact.displayName} ($phoneNumber)');
 
-      // Create invitation message
-      final message = '''
-Hey! 👋
+      // Get user's referral code
+      final response = await UserApiService().getProfile();
+      String referralCode = '';
+      if (response['data'] != null) {
+        final userProfile = UserModel.fromJson(response['data']);
+        referralCode = userProfile.referralCode ?? '';
+      }
+      
+      // Create invitation message with referral code
+      final message = referralCode.isNotEmpty
+          ? '''
+Hey ${contact.displayName}! 👋
 
-Check out $appName - an amazing app for creating trending videos and images! 🎥✨
+Check out $appName - an amazing app for creating AI-generated trending videos and images! 🎥✨
+
+Download it now:
+$playStoreLink
+
+🎁 Use my code: $referralCode to get bonus coins!
+
+You'll love it! 🚀
+'''
+          : '''
+Hey ${contact.displayName}! 👋
+
+Check out $appName - an amazing app for creating AI-generated trending videos and images! 🎥✨
 
 Download it now:
 $playStoreLink
@@ -175,13 +199,6 @@ You'll love it! 🚀
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
         debugPrint('✅ WhatsApp opened successfully');
-        
-        Get.snackbar(
-          '✅ Success',
-          'Opening WhatsApp...',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
-        );
       } else {
         debugPrint('❌ Cannot launch WhatsApp');
         Get.snackbar(
@@ -205,6 +222,14 @@ You'll love it! 🚀
   // Update search query
   void updateSearchQuery(String query) {
     searchQuery.value = query;
+  }
+
+  // Share referral code via any app
+  Future<void> shareReferralCode() async {
+    final shareService = ShareService();
+    await shareService.shareApp(
+      customMessage: 'Hey! Check out $appName - an amazing app for creating AI-generated trending videos and images! 🎥✨',
+    );
   }
 
   // Refresh contacts

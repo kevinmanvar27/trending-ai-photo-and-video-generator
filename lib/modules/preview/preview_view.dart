@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'preview_controller.dart';
 import '../../core/theme/app_colors.dart';
+import '../../routes/app_routes.dart';
+import 'widgets/video_player_widget.dart';
 
 class PreviewView extends GetView<PreviewController> {
   const PreviewView({super.key});
@@ -20,7 +22,7 @@ class PreviewView extends GetView<PreviewController> {
         actions: [
           IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Get.offAllNamed('/main'),
+            onPressed: () => Get.offAllNamed(AppRoutes.main),
           ),
         ],
       ),
@@ -88,80 +90,83 @@ class PreviewView extends GetView<PreviewController> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Before/After Toggle
-                  Obx(() => Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[850] : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1,
+                  // Before/After Toggle (only show if we have original image)
+                  if (controller.selectedFile != null) ...[
+                    Obx(() => Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => controller.showBefore.value = true,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: controller.showBefore.value
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    borderRadius: const BorderRadius.horizontal(
-                                      left: Radius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'BEFORE',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => controller.showBefore.value = true,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
                                       color: controller.showBefore.value
-                                          ? Colors.white
-                                          : (isDark ? Colors.white70 : Colors.black54),
+                                          ? AppColors.primary
+                                          : Colors.transparent,
+                                      borderRadius: const BorderRadius.horizontal(
+                                        left: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'BEFORE',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: controller.showBefore.value
+                                            ? Colors.white
+                                            : (isDark ? Colors.white70 : Colors.black54),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => controller.showBefore.value = false,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: !controller.showBefore.value
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    borderRadius: const BorderRadius.horizontal(
-                                      right: Radius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'AFTER',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => controller.showBefore.value = false,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
                                       color: !controller.showBefore.value
-                                          ? Colors.white
-                                          : (isDark ? Colors.white70 : Colors.black54),
+                                          ? AppColors.primary
+                                          : Colors.transparent,
+                                      borderRadius: const BorderRadius.horizontal(
+                                        right: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'AFTER',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: !controller.showBefore.value
+                                            ? Colors.white
+                                            : (isDark ? Colors.white70 : Colors.black54),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      )),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 20),
+                  ],
 
-                  const SizedBox(height: 20),
-
-                  // Preview Image
-                  Obx(() => Container(
+                  // Preview Image with Download Button Overlay
+                  Stack(
+                    children: [
+                      Container(
                         width: double.infinity,
                         height: 400,
                         decoration: BoxDecoration(
@@ -174,52 +179,81 @@ class PreviewView extends GetView<PreviewController> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: controller.showBefore.value
-                              ? _buildBeforeImage()
-                              : _buildAfterImage(),
+                          child: controller.selectedFile != null
+                              ? Obx(() => controller.showBefore.value
+                                  ? _buildBeforeImage()
+                                  : _buildAfterImage())
+                              : _buildAfterImage(), // From history - show only result
                         ),
-                      )),
-
-                  const SizedBox(height: 24),
-
-                  // Stats Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[850] : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.withOpacity(0.3),
-                        width: 1,
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Conversion Details',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatRow(Icons.style, 'Style', controller.selectedSample?.title ?? 'N/A'),
-                        const SizedBox(height: 12),
-                        _buildStatRow(Icons.category, 'Type', controller.selectedSample?.type.toUpperCase() ?? 'N/A'),
-                        const SizedBox(height: 12),
-                        _buildStatRow(Icons.timer, 'Processing Time', '4.2 seconds'),
-                        const SizedBox(height: 12),
-                        _buildStatRow(Icons.high_quality, 'Quality', 'High (1080p)'),
-                      ],
-                    ),
+                      
+                      // Download Button in Bottom Right Corner
+                      Positioned(
+                        bottom: 16,
+                        right: 16,
+                        child: Obx(() {
+                          if (controller.isDownloading.value) {
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  value: controller.downloadProgress.value,
+                                  strokeWidth: 3,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: controller.downloadResult,
+                              borderRadius: BorderRadius.circular(30),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.download,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
 
-          // Bottom Action Buttons
+          // Bottom Action Buttons - Only Share Button
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -232,65 +266,21 @@ class PreviewView extends GetView<PreviewController> {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: controller.downloadResult,
-                    icon: const Icon(Icons.download),
-                    label: const Text('Download Result'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.shareResult,
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: controller.shareResult,
-                        icon: const Icon(Icons.share),
-                        label: const Text('Share'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary, width: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Get.offAllNamed('/main'),
-                        icon: const Icon(Icons.home),
-                        label: const Text('Home'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? Colors.white70 : Colors.black87,
-                          side: BorderSide(
-                            color: isDark ? Colors.white30 : Colors.black26,
-                            width: 2,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -323,60 +313,100 @@ class PreviewView extends GetView<PreviewController> {
   }
 
   Widget _buildAfterImage() {
-    // Show a mock "processed" version (in real app, this would be the API result)
-    if (controller.selectedSample != null) {
+    // Display the generated content (image or video) from backend
+    if (controller.generation?.generatedOutput != null) {
+      final isVideo = controller.generation?.type == 'video';
+      
       return Stack(
         fit: StackFit.expand,
         children: [
-          if (controller.selectedFile != null)
-            Image.file(
-              File(controller.selectedFile!.path),
+          // Display video or image based on type
+          if (isVideo)
+            VideoPlayerWidget(
+              videoUrl: controller.generation!.generatedOutput!,
               fit: BoxFit.contain,
-            ),
-          // Overlay to simulate "processed" look
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withOpacity(0.1),
-                  Colors.transparent,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.auto_awesome, size: 16, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text(
-                    'AI Enhanced',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+            )
+          else
+            Image.network(
+              controller.generation!.generatedOutput!,
+              fit: BoxFit.contain,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Loading generated content...',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
                   ),
-                ],
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text('Failed to load generated content', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                );
+              },
+            ),
+          
+          // AI Enhanced badge (only for images, video player has its own badge)
+          if (!isVideo)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, size: 16, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'AI Enhanced',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       );
     }
+    
+    // Fallback if no generated content yet
     return const Center(
-      child: Icon(Icons.image, size: 64, color: Colors.grey),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image, size: 64, color: Colors.grey),
+          SizedBox(height: 8),
+          Text('Processing...', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
     );
   }
 

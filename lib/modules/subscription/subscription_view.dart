@@ -10,12 +10,52 @@ class SubscriptionView extends GetView<SubscriptionController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buy Credits'),
+        title: const Text('Subscription Plans'),
         centerTitle: true,
       ),
-      body: Obx(() => Stack(
-        children: [
-          Padding(
+      body: Obx(() {
+        // Show loading indicator
+        if (controller.isLoading.value && controller.subscriptionPlans.isEmpty) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        // Show error message
+        if (controller.errorMessage.value.isNotEmpty && controller.subscriptionPlans.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  controller.errorMessage.value,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => controller.loadSubscriptionPlans(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Show plans
+        return RefreshIndicator(
+          onRefresh: () async {
+            await controller.loadSubscriptionPlans();
+            await controller.loadMySubscription();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24.0),
             child: Column(
               children: [
@@ -61,10 +101,66 @@ class SubscriptionView extends GetView<SubscriptionController> {
                   ),
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Active Subscription Info
+                Obx(() {
+                  if (controller.mySubscription.value != null && 
+                      controller.mySubscription.value!.isActive) {
+                    final sub = controller.mySubscription.value!;
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Active Subscription',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Plan: ${sub.plan?.name ?? "Unknown"}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            'Expires: ${_formatDate(sub.expiresAt)}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            'Remaining Credits: ${sub.remainingCoins}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
+                
+                const SizedBox(height: 24),
                 
                 // Info Card
-                Container(
+                /*Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
@@ -105,39 +201,63 @@ class SubscriptionView extends GetView<SubscriptionController> {
                       ),
                     ],
                   ),
+                ),*/
+                
+                // const SizedBox(height: 32),
+                
+                // Plans Title
+                const Text(
+                  'Choose Your Plan',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
                 
-                // Credit Package
-                _buildPlanCard(
-                  context,
-                  credits: '1000 Credits',
-                  price: '₹200',
-                  popular: true,
-                  onTap: () => controller.buyCredits(1000, 200),
-                ),
+                // Subscription Plans from API
+                if (controller.subscriptionPlans.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No subscription plans available',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ),
+                  )
+                else
+                  ...controller.subscriptionPlans.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final plan = entry.value;
+                    final isPopular = index == 1; // Mark second plan as popular
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _buildPlanCard(
+                        context,
+                        plan: plan,
+                        popular: isPopular,
+                        onTap: () => controller.subscribeToPlan(plan),
+                      ),
+                    );
+                  }).toList(),
               ],
             ),
           ),
-          
-          // Loading overlay
-          if (controller.isProcessing.value)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-        ],
-      )),
+        );
+      }),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   Widget _buildPlanCard(
     BuildContext context, {
-    required String credits,
-    required String price,
+    required dynamic plan,
     bool popular = false,
     required VoidCallback onTap,
   }) {
@@ -183,7 +303,7 @@ class SubscriptionView extends GetView<SubscriptionController> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                '🔥 BEST VALUE',
+                '🔥 MOST POPULAR',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -193,44 +313,119 @@ class SubscriptionView extends GetView<SubscriptionController> {
             ),
           if (popular) const SizedBox(height: 16),
           
+          // Plan Name
+          /*Text(
+            plan.name,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: popular ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            textAlign: TextAlign.center,
+          ),*/
+          
+          const SizedBox(height: 8),
+          
+          // Description
+          /*if (plan.description != null && plan.description!.isNotEmpty)
+            Text(
+              plan.description!,
+              style: TextStyle(
+                fontSize: 14,
+                color: popular ? Colors.white70 : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          
+          const SizedBox(height: 16),*/
+          
           Icon(
             Icons.stars,
             size: 48,
             color: popular ? Colors.white : AppColors.primary,
           ),
+          
           const SizedBox(height: 12),
           
+          // Credits
           Text(
-            credits,
+            '${plan.coins} Credits',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: popular ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+              color: popular ? Colors.white : AppColors.primary,
             ),
           ),
+          
           const SizedBox(height: 8),
+          
+          // Price
           Text(
-            price,
+            '₹${plan.price.toStringAsFixed(0)}',
             style: TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.bold,
               color: popular ? Colors.white : AppColors.primary,
             ),
           ),
+          
           const SizedBox(height: 8),
-          Text(
-            '₹0.20 per credit',
+          
+          // Duration
+          /*Text(
+            plan.durationText,
             style: TextStyle(
               fontSize: 14,
               color: popular ? Colors.white70 : Colors.grey,
             ),
           ),
-          const SizedBox(height: 20),
+          
+          const SizedBox(height: 8),
+          
+          // Price per credit
+          Text(
+            '₹${(plan.price / plan.coins).toStringAsFixed(2)} per credit',
+            style: TextStyle(
+              fontSize: 14,
+              color: popular ? Colors.white70 : Colors.grey,
+            ),
+          ),
+          
+          // Features
+          if (plan.features != null && plan.features!.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            ...plan.features!.map((feature) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 20,
+                    color: popular ? Colors.white : Colors.green,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: popular ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )).toList(),
+          ],
+          
+          const SizedBox(height: 20),*/
+          
+          // Buy Button
           SizedBox(
             width: double.infinity,
             height: 50,
-            child: ElevatedButton(
-              onPressed: onTap,
+            child: Obx(() => ElevatedButton(
+              onPressed: controller.isProcessing.value ? null : onTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: popular ? Colors.white : AppColors.primary,
                 foregroundColor: popular ? AppColors.primary : Colors.white,
@@ -238,14 +433,22 @@ class SubscriptionView extends GetView<SubscriptionController> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Buy Now',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+              child: controller.isProcessing.value
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Subscribe Now',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            )),
           ),
         ],
       ),

@@ -8,7 +8,8 @@ import 'main_controller.dart';
 class MainBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<MainController>(() => MainController());
+    // Use Get.put to make MainController permanent and prevent recreation
+    Get.put<MainController>(MainController(), permanent: true);
     Get.lazyPut<HomeController>(() => HomeController());
     Get.lazyPut<HistoryController>(() => HistoryController());
     Get.lazyPut<InviteController>(() => InviteController());

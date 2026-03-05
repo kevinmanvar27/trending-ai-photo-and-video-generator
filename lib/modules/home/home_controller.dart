@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/services/template_api_service.dart';
+import '../../core/services/credits_service.dart';
+import '../../core/models/template_model.dart';
+import 'controllers/video_playback_manager.dart';
 
 class SampleItem {
   final String id;
@@ -7,6 +11,8 @@ class SampleItem {
   final String description;
   final String imageUrl;
   final String type; // 'image' or 'video'
+  final int coinsRequired;
+  final int? templateId;
 
   SampleItem({
     required this.id,
@@ -14,119 +20,151 @@ class SampleItem {
     required this.description,
     required this.imageUrl,
     required this.type,
+    this.coinsRequired = 0,
+    this.templateId,
   });
 }
 
 class HomeController extends GetxController {
+  final TemplateApiService _templateApiService = TemplateApiService();
+  final CreditsService _creditsService = Get.find<CreditsService>();
+  
   final selectedSample = Rxn<SampleItem>();
   final selectedFilter = 'all'.obs; // 'all', 'image', 'video'
+  final isLoading = false.obs;
+  final templates = <TemplateModel>[].obs;
+  final errorMessage = ''.obs;
 
-  // Filtered samples based on selected filter
-  List<SampleItem> get filteredSamples {
-    switch (selectedFilter.value) {
-      case 'image':
-        return imageSamples;
-      case 'video':
-        return videoSamples;
-      default:
-        return allSamples;
+  @override
+  void onInit() {
+    super.onInit();
+    // Initialize video playback manager
+    Get.put(VideoPlaybackManager());
+    _checkAndFetchCoins();
+    loadTemplates();
+  }
+  
+  // Check if coins need to be fetched
+  Future<void> _checkAndFetchCoins() async {
+    // If coins are 0 and last sync is null or old, fetch from API
+    if (_creditsService.credits.value == 0 && 
+        (_creditsService.lastSyncTime.value == null || 
+         DateTime.now().difference(_creditsService.lastSyncTime.value!).inMinutes > 5)) {
+      debugPrint('💰 Coins not loaded, fetching from API...');
+      await _creditsService.fetchReferralCoins();
     }
   }
 
-  // All samples combined (images + videos)
-  List<SampleItem> get allSamples => [...imageSamples, ...videoSamples];
+  // Load templates from API
+  Future<void> loadTemplates() async {
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      
+      print('🔄 Loading templates from API...');
+      
+      // Templates are visible to all users
+      // Subscription check only happens at generation time
+      
+      final response = await _templateApiService.getTemplates(
+        isActive: true,
+        sortBy: 'usage_count',
+        sortOrder: 'desc',
+      );
+      
+      print('📥 Templates response received: ${response.length} templates');
+      
+      templates.value = response.map((json) => TemplateModel.fromJson(json)).toList();
+      
+      print('✅ Templates loaded successfully: ${templates.length} templates');
+      
+      if (templates.isEmpty) {
+        errorMessage.value = 'No templates available';
+        print('⚠️ No templates found in database');
+      } else {
+        print('📋 Template types: ${templates.map((t) => t.type).toSet().toList()}');
+      }
+    } catch (e) {
+      errorMessage.value = 'Failed to load templates. Please check your internet connection.';
+      print('❌ Error loading templates: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
-  // Image conversion samples
-  final List<SampleItem> imageSamples = [
-    SampleItem(
-      id: 'img_1',
-      title: 'Animated Portrait',
-      description: 'Transform your photo into a smooth animated video',
-      imageUrl: 'https://picsum.photos/seed/portrait/400/400',
-      type: 'image',
-    ),
-    SampleItem(
-      id: 'img_2',
-      title: 'Cartoon Style',
-      description: 'Convert your image to animated cartoon video',
-      imageUrl: 'https://picsum.photos/seed/cartoon/400/400',
-      type: 'image',
-    ),
-    SampleItem(
-      id: 'img_3',
-      title: 'Cinematic Motion',
-      description: 'Add cinematic motion effects to your photo',
-      imageUrl: 'https://picsum.photos/seed/cinema/400/400',
-      type: 'image',
-    ),
-    SampleItem(
-      id: 'img_4',
-      title: '3D Parallax',
-      description: 'Create stunning 3D parallax video from image',
-      imageUrl: 'https://picsum.photos/seed/3d/400/400',
-      type: 'image',
-    ),
-    SampleItem(
-      id: 'img_5',
-      title: 'Vintage Film',
-      description: 'Turn your photo into vintage film style video',
-      imageUrl: 'https://picsum.photos/seed/vintage/400/400',
-      type: 'image',
-    ),
-    SampleItem(
-      id: 'img_6',
-      title: 'Neon Glow',
-      description: 'Add animated neon glow effects to your image',
-      imageUrl: 'https://picsum.photos/seed/neon/400/400',
-      type: 'image',
-    ),
-  ];
+  // Retry loading templates
+  void retryLoadTemplates() {
+    loadTemplates();
+  }
 
-  // Video conversion samples
-  final List<SampleItem> videoSamples = [
-    SampleItem(
-      id: 'vid_1',
-      title: 'Key Frame Extract',
-      description: 'Extract the best frame from your video',
-      imageUrl: 'https://picsum.photos/seed/keyframe/400/400',
-      type: 'video',
-    ),
-    SampleItem(
-      id: 'vid_2',
-      title: 'Poster Shot',
-      description: 'Create high-quality poster from video',
-      imageUrl: 'https://picsum.photos/seed/poster/400/400',
-      type: 'video',
-    ),
-    SampleItem(
-      id: 'vid_3',
-      title: 'Thumbnail Grid',
-      description: 'Generate contact sheet with multiple frames',
-      imageUrl: 'https://picsum.photos/seed/grid/400/400',
-      type: 'video',
-    ),
-    SampleItem(
-      id: 'vid_4',
-      title: 'Motion Blur',
-      description: 'Capture motion blur effect in single image',
-      imageUrl: 'https://picsum.photos/seed/blur/400/400',
-      type: 'video',
-    ),
-    SampleItem(
-      id: 'vid_5',
-      title: 'Time-lapse Frame',
-      description: 'Extract perfect moment from time-lapse',
-      imageUrl: 'https://picsum.photos/seed/timelapse/400/400',
-      type: 'video',
-    ),
-    SampleItem(
-      id: 'vid_6',
-      title: 'Collage Maker',
-      description: 'Create artistic collage from video frames',
-      imageUrl: 'https://picsum.photos/seed/collage/400/400',
-      type: 'video',
-    ),
-  ];
+  // Refresh all data (subscription + templates)
+  Future<void> refreshAll() async {
+    print('🔄 Refreshing home screen...');
+    
+    try {
+      // Refresh coins from API
+      await _creditsService.fetchReferralCoins();
+      
+      // Reload templates
+      await loadTemplates();
+      
+      print('✅ Home screen refreshed successfully');
+    } catch (e) {
+      print('❌ Error refreshing home screen: $e');
+      
+      // Show error feedback
+      Get.showSnackbar(
+        GetSnackBar(
+          message: 'Failed to refresh. Please try again.',
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red,
+          icon: const Icon(Icons.error, color: Colors.white),
+          margin: const EdgeInsets.all(16),
+          borderRadius: 8,
+          snackPosition: SnackPosition.TOP,
+        ),
+      );
+    }
+  }
+
+  // Convert templates to SampleItems
+  List<SampleItem> get templatesAsSamples {
+    return templates.map((template) {
+      return SampleItem(
+        id: template.id.toString(),
+        title: template.title,
+        description: template.description ?? '',
+        imageUrl: template.referenceImageUrl ?? '',
+        type: template.type,
+        coinsRequired: template.coinsRequired,
+        templateId: template.id,
+      );
+    }).toList();
+  }
+
+  // Filtered samples based on selected filter
+  List<SampleItem> get filteredSamples {
+    final samples = templatesAsSamples;
+    
+    switch (selectedFilter.value) {
+      case 'image':
+        return samples.where((s) => s.type == 'image').toList();
+      case 'video':
+        return samples.where((s) => s.type == 'video').toList();
+      default:
+        return samples;
+    }
+  }
+
+  // Check if user has enough coins for a template
+  bool hasEnoughCoins(SampleItem sample) {
+    return _creditsService.credits.value >= sample.coinsRequired;
+  }
+
+  // Check if user has active subscription
+  bool get hasActiveSubscription {
+    return _creditsService.hasActiveSubscription.value;
+  }
 
   void selectSample(SampleItem sample) {
     selectedSample.value = sample;
@@ -142,5 +180,17 @@ class HomeController extends GetxController {
         'selectedSample': selectedSample.value,
       });
     }
+  }
+  
+  @override
+  void onClose() {
+    // Clean up video playback manager
+    try {
+      final manager = Get.find<VideoPlaybackManager>();
+      manager.stopAll();
+    } catch (e) {
+      // Manager not found, ignore
+    }
+    super.onClose();
   }
 }

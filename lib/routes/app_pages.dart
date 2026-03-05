@@ -3,6 +3,10 @@ import '../modules/splash/splash_binding.dart';
 import '../modules/splash/splash_view.dart';
 import '../modules/login/login_binding.dart';
 import '../modules/login/login_view.dart';
+import '../modules/register/register_binding.dart';
+import '../modules/register/register_view.dart';
+import '../modules/referral/referral_binding.dart';
+import '../modules/referral/referral_view.dart';
 import '../modules/main/main_binding.dart';
 import '../modules/main/main_view.dart';
 import '../modules/home/home_binding.dart';
@@ -32,6 +36,16 @@ class AppPages {
       name: AppRoutes.login,
       page: () => const LoginView(),
       binding: LoginBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.register,
+      page: () => const RegisterView(),
+      binding: RegisterBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.referral,
+      page: () => const ReferralView(),
+      binding: ReferralBinding(),
     ),
     GetPage(
       name: AppRoutes.main,

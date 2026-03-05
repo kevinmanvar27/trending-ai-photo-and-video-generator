@@ -19,11 +19,12 @@ class ProcessingView extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             // Selected Style Info
             if (controller.selectedSample != null) ...[
               Container(
@@ -196,6 +197,7 @@ class ProcessingView extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

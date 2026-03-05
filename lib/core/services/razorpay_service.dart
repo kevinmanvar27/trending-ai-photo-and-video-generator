@@ -4,11 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'credits_service.dart';
+import 'unified_auth_service.dart';
+import 'api_service.dart';
 
 class RazorpayService extends GetxService {
   Razorpay? _razorpay;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UnifiedAuthService _unifiedAuth = Get.find<UnifiedAuthService>();
   
   // Test credentials
   static const String keyId = 'rzp_test_Go3jN8rdNmRJ7P';
@@ -17,6 +20,8 @@ class RazorpayService extends GetxService {
   // Store pending payment details
   int? _pendingCredits;
   int? _pendingAmount;
+  bool _isSubscriptionPayment = false; // Flag to differentiate subscription vs credit purchase
+  Function(String, String, String)? _onPaymentSuccess; // Callback for payment success
 
   // Initialize service
   Future<RazorpayService> init() async {
@@ -45,9 +50,12 @@ class RazorpayService extends GetxService {
   Future<void> openCheckout({
     required int credits,
     required int amountInRupees,
+    bool isSubscription = false, // Flag to indicate if this is a subscription payment
+    Function(String, String, String)? onSuccess, // Callback for payment success
   }) async {
     debugPrint('💳 Opening Razorpay checkout...');
     debugPrint('💰 Amount: ₹$amountInRupees for $credits credits');
+    debugPrint('📦 Payment Type: ${isSubscription ? "Subscription" : "Credit Purchase"}');
     
     // Initialize Razorpay if not already done
     if (_razorpay == null) {
@@ -57,10 +65,13 @@ class RazorpayService extends GetxService {
     // Store pending payment details
     _pendingCredits = credits;
     _pendingAmount = amountInRupees;
+    _isSubscriptionPayment = isSubscription;
+    _onPaymentSuccess = onSuccess;
 
-    final user = _auth.currentUser;
-    if (user == null) {
-      debugPrint('❌ User not logged in');
+    // Check authentication using unified auth service
+    final isAuthenticated = await _unifiedAuth.checkAuthentication();
+    if (!isAuthenticated) {
+      debugPrint('❌ User not authenticated');
       Get.snackbar(
         '❌ Error',
         'Please login to continue',
@@ -69,7 +80,17 @@ class RazorpayService extends GetxService {
       return;
     }
 
-    debugPrint('👤 User: ${user.email}');
+    // Get user details from unified auth
+    final userEmail = _unifiedAuth.getUserEmail();
+    final userPhone = _unifiedAuth.getUserPhone();
+    
+    debugPrint('👤 User: $userEmail (Auth type: ${_unifiedAuth.isFirebaseUser() ? "Google" : "Email"})');
+    
+    // Log bearer token if using email auth
+    if (!_unifiedAuth.isFirebaseUser()) {
+      final apiService = Get.find<ApiService>();
+      debugPrint('🔑 Using Bearer Token for Payment: ${apiService.authToken}');
+    }
 
     var options = {
       'key': keyId,
@@ -77,8 +98,8 @@ class RazorpayService extends GetxService {
       'name': 'Trends App',
       'description': '$credits Credits',
       'prefill': {
-        'contact': user.phoneNumber ?? '',
-        'email': user.email ?? '',
+        'contact': userPhone ?? '',
+        'email': userEmail ?? '',
       },
       'theme': {
         'color': '#6C63FF',
@@ -106,12 +127,10 @@ class RazorpayService extends GetxService {
   // Handle successful payment
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     debugPrint('✅ Payment Success: ${response.paymentId}');
+    debugPrint('📦 Payment Type: ${_isSubscriptionPayment ? "Subscription" : "Credit Purchase"}');
     
     if (_pendingCredits != null && _pendingAmount != null) {
       try {
-        // Get CreditsService
-        final creditsService = Get.find<CreditsService>();
-        
         // Save payment details to Firestore
         await _savePaymentToFirestore(
           paymentId: response.paymentId ?? '',
@@ -122,23 +141,27 @@ class RazorpayService extends GetxService {
           status: 'success',
         );
 
-        // Add credits to user account
-        await creditsService.addCredits(_pendingCredits!);
-        
-        Get.snackbar(
-          '✅ Payment Successful!',
-          'You received $_pendingCredits credits',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-        
-        // Navigate back
-        Get.back();
+        if (_isSubscriptionPayment && _onPaymentSuccess != null) {
+          // For subscription payments, call the callback
+          debugPrint('💳 Calling subscription payment success callback...');
+          await _onPaymentSuccess!(
+            response.paymentId ?? '',
+            response.orderId ?? '',
+            response.signature ?? '',
+          );
+        } else {
+          // For credit purchases, just add credits
+          final creditsService = Get.find<CreditsService>();
+          await creditsService.addCredits(_pendingCredits!);
+          
+          // Navigate back
+          Get.back();
+        }
       } catch (e) {
         debugPrint('❌ Error processing payment: $e');
         Get.snackbar(
           '⚠️ Warning',
-          'Payment successful but credits update failed. Contact support.',
+          'Payment successful but processing failed. Contact support with payment ID: ${response.paymentId}',
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 5),
         );
@@ -148,6 +171,8 @@ class RazorpayService extends GetxService {
     // Clear pending payment
     _pendingCredits = null;
     _pendingAmount = null;
+    _isSubscriptionPayment = false;
+    _onPaymentSuccess = null;
   }
 
   // Handle payment error
@@ -183,11 +208,6 @@ class RazorpayService extends GetxService {
   // Handle external wallet
   void _handleExternalWallet(ExternalWalletResponse response) {
     debugPrint('ℹ️ External Wallet: ${response.walletName}');
-    Get.snackbar(
-      'ℹ️ External Wallet',
-      'Payment via ${response.walletName}',
-      snackPosition: SnackPosition.BOTTOM,
-    );
   }
 
   // Save payment details to Firestore
@@ -201,30 +221,40 @@ class RazorpayService extends GetxService {
     String? errorCode,
     String? errorMessage,
   }) async {
-    final userId = _auth.currentUser?.uid;
+    // Get user ID from unified auth (works for both Firebase and email users)
+    final userId = _unifiedAuth.getUserId();
     
-    if (userId != null) {
+    if (userId != null && userId.isNotEmpty) {
       try {
-        await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('payments')
-            .add({
-          'paymentId': paymentId,
-          'orderId': orderId,
-          'signature': signature,
-          'credits': credits,
-          'amount': amount,
-          'status': status,
-          'errorCode': errorCode,
-          'errorMessage': errorMessage,
-          'timestamp': FieldValue.serverTimestamp(),
-          'platform': 'razorpay',
-        });
-        debugPrint('💾 Payment saved to Firestore');
+        // Only save to Firestore if user is Firebase user
+        if (_unifiedAuth.isFirebaseUser()) {
+          await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('payments')
+              .add({
+            'paymentId': paymentId,
+            'orderId': orderId,
+            'signature': signature,
+            'credits': credits,
+            'amount': amount,
+            'status': status,
+            'errorCode': errorCode,
+            'errorMessage': errorMessage,
+            'timestamp': FieldValue.serverTimestamp(),
+            'platform': 'razorpay',
+          });
+          debugPrint('💾 Payment saved to Firestore');
+        } else {
+          debugPrint('ℹ️ Email user - payment tracked via backend API');
+          // For email users, payment will be tracked via backend API
+          // The backend subscription/payment endpoints handle this
+        }
       } catch (e) {
         debugPrint('❌ Error saving payment to Firestore: $e');
       }
+    } else {
+      debugPrint('⚠️ No user ID available to save payment');
     }
   }
 }
