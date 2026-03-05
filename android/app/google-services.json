@@ -1,1 +1,46 @@
-
+{
+  "project_info": {
+    "project_number": "858164631228",
+    "project_id": "trends-cd27d",
+    "storage_bucket": "trends-cd27d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:858164631228:android:2a3659018a433ba1ad62b9",
+        "android_client_info": {
+          "package_name": "com.rektech.trends"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "858164631228-vbb2qmps26ucp1qtkjcu2pf6vtq4gd0e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rektech.trends",
+            "certificate_hash": "526429580e671ed7fb9c15e06c8f736d2ac47cbe"
+          }
+        },
+        {
+          "client_id": "858164631228-5r34mv7g4l32dfvei7q7aja4u0p4nsq0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "858164631228-5r34mv7g4l32dfvei7q7aja4u0p4nsq0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
