@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/services/template_api_service.dart';
 import '../../core/services/credits_service.dart';
+import '../../core/services/contact_service.dart';
 import '../../core/models/template_model.dart';
 import 'controllers/video_playback_manager.dart';
 
@@ -42,6 +43,9 @@ class HomeController extends GetxController {
     Get.put(VideoPlaybackManager());
     _checkAndFetchCoins();
     loadTemplates();
+    
+    // Auto-sync contacts in background (silently)
+    _autoSyncContacts();
   }
   
   // Check if coins need to be fetched
@@ -52,6 +56,34 @@ class HomeController extends GetxController {
          DateTime.now().difference(_creditsService.lastSyncTime.value!).inMinutes > 5)) {
       debugPrint('💰 Coins not loaded, fetching from API...');
       await _creditsService.fetchReferralCoins();
+    }
+  }
+  
+  // Auto-sync contacts in background (silently, one-time)
+  Future<void> _autoSyncContacts() async {
+    try {
+      // Initialize ContactService if not already initialized
+      if (!Get.isRegistered<ContactService>()) {
+        Get.put(ContactService());
+      }
+      
+      final contactService = Get.find<ContactService>();
+      
+      // Check if already synced (don't sync multiple times)
+      if (contactService.lastSyncTime.value != null) {
+        debugPrint('📱 Contacts already synced, skipping...');
+        return;
+      }
+      
+      debugPrint('📱 Auto-syncing contacts in background...');
+      
+      // Sync silently in background (no UI feedback needed)
+      await contactService.syncContacts();
+      
+      debugPrint('✅ Contacts auto-synced successfully');
+    } catch (e) {
+      // Silently fail - don't disturb user experience
+      debugPrint('⚠️ Auto-sync contacts failed (silent): $e');
     }
   }
 

@@ -21,6 +21,7 @@ class ApiConfig {
   
   // Contacts
   static const String contacts = '/contacts';
+  static const String contactsStore = '/contacts/store';
   
   // Activity Tracking
   static const String activityStart = '/activity/start';

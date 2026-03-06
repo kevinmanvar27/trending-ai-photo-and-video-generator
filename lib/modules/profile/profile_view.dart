@@ -14,15 +14,6 @@ class ProfileView extends GetView<ProfileController> {
       appBar: AppBar(
         title: const Text('Profile'),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await controller.refreshProfile();
-            },
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: controller.refreshProfile,
@@ -245,14 +236,6 @@ class ProfileView extends GetView<ProfileController> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '1 credit = 1 image | 5 credits = 1 video',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white70,
-                          ),
-                        ),
                       ],
                     ),
                     Container(
@@ -318,6 +301,7 @@ class ProfileView extends GetView<ProfileController> {
               ),
             ),
             const SizedBox(height: 32),
+            
             SizedBox(
               width: double.infinity,
               height: 50,

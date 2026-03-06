@@ -57,6 +57,8 @@ void main() async {
     ApiServiceInitializer.init();
     debugPrint('All API services initialized');
     
+    // ContactService will be initialized lazily when needed (via Get.find or Get.put in binding)
+    
     debugPrint('Running app...');
     runApp(const MyApp());
   } catch (e, stackTrace) {

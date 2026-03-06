@@ -75,12 +75,6 @@ class InviteView extends GetView<InviteController> {
               ),
             ],
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: controller.refreshContacts,
-            tooltip: 'Refresh Contacts',
-          ),
         ],
       ),
     );
